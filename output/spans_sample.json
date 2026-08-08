@@ -1,0 +1,13 @@
+[
+  {
+    "name": "gen_ai.rca_agent",
+    "attributes": {
+      "gen_ai.system": "simulated",
+      "gen_ai.request.model": "simulated-rca-agent",
+      "gen_ai.usage.input_tokens": 420,
+      "gen_ai.usage.output_tokens": 120,
+      "agent.latency_ms": 121.66,
+      "agent.estimated_cost_usd": 0.0
+    }
+  }
+]
