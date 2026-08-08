@@ -4,3 +4,4 @@ matplotlib
 scikit-learn
 opentelemetry-api
 opentelemetry-sdk
+anthropic

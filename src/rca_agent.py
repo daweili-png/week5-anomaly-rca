@@ -1,3 +1,5 @@
+import os
+import json
 import pandas as pd
 
 
@@ -50,9 +52,7 @@ def get_log_context(log_file, start_time, end_time):
     matching_logs = []
 
     with open(log_file, "r", encoding="utf-8") as f:
-
         for line in f:
-
             try:
                 timestamp_text = line[:19]
                 timestamp = pd.to_datetime(timestamp_text)
@@ -68,9 +68,12 @@ def get_log_context(log_file, start_time, end_time):
 
 def generate_rca(metrics_file, log_file, start_time, end_time):
     """
-    Simulated RCA agent using two tools:
+    RCA agent using two tools:
     1. get_metric_context()
     2. get_log_context()
+
+    If ANTHROPIC_API_KEY exists, Claude generates the RCA.
+    Otherwise, the system falls back to a simulated RCA.
     """
 
     metrics = get_metric_context(
@@ -85,6 +88,60 @@ def generate_rca(metrics_file, log_file, start_time, end_time):
         end_time
     )
 
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+
+    # Real LLM mode
+    if api_key:
+        from anthropic import Anthropic
+
+        client = Anthropic(api_key=api_key)
+
+        prompt = f"""
+You are a site reliability engineering root cause analysis agent.
+
+Analyze the incident using the metric evidence and application logs below.
+
+Incident window:
+{start_time} to {end_time}
+
+Metric evidence:
+{json.dumps(metrics, indent=2)}
+
+Application logs:
+{chr(10).join(logs)}
+
+Return a concise structured RCA with these sections:
+
+1. Root Cause
+2. Evidence
+3. Impact
+4. Recommended Actions
+5. Confidence
+
+Do not claim certainty unless the evidence supports it.
+"""
+
+        response = client.messages.create(
+            model="claude-sonnet-5",
+            max_tokens=500,
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+        )
+
+        return {
+            "mode": "anthropic",
+            "model": "claude-sonnet-5",
+            "input_tokens": response.usage.input_tokens,
+            "output_tokens": response.usage.output_tokens,
+            "incident_window": f"{start_time} to {end_time}",
+            "rca_text": response.content[0].text
+        }
+
+    # Simulated fallback
     database_errors = [
         line for line in logs
         if "database" in line.lower()
@@ -124,6 +181,8 @@ def generate_rca(metrics_file, log_file, start_time, end_time):
     ]
 
     return {
+        "mode": "simulated",
+        "model": "simulated-rca-agent",
         "incident_window": f"{start_time} to {end_time}",
         "root_cause": root_cause,
         "evidence": evidence,
